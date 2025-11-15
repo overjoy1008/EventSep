@@ -2,7 +2,7 @@
 
 ### *A State-of-the-Art Architecture for Universal Text-Conditioned Audio Separation (RTX 5080 CUDA 12.8 Ready)*
 
----
+
 
 ## Overview
 
@@ -16,7 +16,7 @@
 EventSep은 단순한 “음원 분리(Source Separation)”가 아니라,
 **텍스트에서 지정된 이벤트 단위(Event-level)로 오디오를 분리하는** 새로운 패러다임을 다룬다.
 
----
+
 
 # Key Contributions
 
@@ -44,7 +44,7 @@ Slakh2100의 잔여 residual artifact를 제거하는
 Sed 모델, Text Encoder, Audio Backbone 3개 모듈이 완전 독립.
 새로운 이벤트/악기/효과음에 대한 zero-shot separation 가능.
 
----
+
 
 # System Architecture (Model Skeleton — *중요*)
 
@@ -119,7 +119,7 @@ docker run --gpus all -it --rm \
     /bin/bash
 ```
 
----
+
 
 # Project Structure
 
@@ -188,7 +188,7 @@ python FlowSep/inference/run_flowsep.py \
     --output output/vocal_refined.wav
 ```
 
----
+
 
 # Datasets (Training / Evaluation)
 
@@ -197,7 +197,7 @@ python FlowSep/inference/run_flowsep.py \
 * **BBC Sound Effects**
 * **FSD50K / ESC-50 (event-level separation testing)**
 
----
+
 
 # Performance
 
@@ -209,7 +209,7 @@ EventSep는 아래의 기준에서 SOTA 성능을 보고했다:
 | FlowSep             | 매우 좋음  | 가장 좋음  | 낮음                       |
 | **EventSep (ours)** | **최고** | **최고** | **최고 (SED 활용)**          |
 
----
+
 
 # Research Notes
 
@@ -222,7 +222,7 @@ Event-level SED를 결합함으로써
 
 이라는 명확한 정보 흐름이 만들어지고, 이것이 SOTA 분리 성능을 만든다.
 
----
+
 
 # Citation
 
