@@ -1,0 +1,1 @@
+VGGSound Avg SDRi: 3.682, SISDR: 8.695, CLAPScore: 0.393, CLAPScoreA: 0.818

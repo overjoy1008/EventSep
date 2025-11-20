@@ -60,15 +60,15 @@ FlowSep/input/
 FlowSep/output/
 FlowSep/logs/
 
-# ---- Large data ----
-data/
-dataset/
-datasets/
-input/
-output/
-inputs/
-outputs/
-results/
+# # ---- Large data ----
+# data/
+# dataset/
+# datasets/
+# input/
+# output/
+# inputs/
+# outputs/
+# results/
 
 # ---- Docker ----
 *.tar
