@@ -1,114 +1,415 @@
+# # ========================== benchmark.py ==========================
+
+# import os
+# import sys
+# import datetime
+
+# sys.path.append(os.path.join(os.getcwd(), "AudioSep"))
+# from AudioSep.utils import load_ss_model, parse_yaml
+
+# sys.path.append(os.path.join(os.getcwd(), "FlowSep/src"))
+# sys.path.append(os.path.join(os.getcwd(), "FlowSep"))
+# from utils_flowsep import load_flowsep_model
+
+# from evaluation.evaluate_vggsound_eventsep import VGGSoundEventSepEvaluator
+
+
+# def benchmark(
+#     audiosep_ckpt="AudioSep/checkpoint/audiosep_base_4M_steps.ckpt",
+#     audiosep_config="AudioSep/config/audiosep_base.yaml",
+#     flowsep_ckpt="FlowSep/model_logs/pretrained/v2_100k.ckpt",
+#     flowsep_config="FlowSep/lass_config/2channel_flow.yaml",
+#     ensemble="audiosep",
+#     sed_mask="soft",
+#     sed_threshold=0.5,
+#     ensemble_rate=0.3,
+#     ensemble_freq=4000,
+#     clapscore_type="audiosep",
+#     embedding_model_type="minilm",
+#     demo_mode=False,
+#     use_demucs=False,
+# ):
+
+#     device = "cuda"
+
+#     configs = parse_yaml(audiosep_config)
+#     from models.clap_encoder import CLAP_Encoder
+#     query_encoder = CLAP_Encoder().eval()
+
+#     pl_audiosep = load_ss_model(
+#         configs=configs,
+#         checkpoint_path=audiosep_ckpt,
+#         query_encoder=query_encoder
+#     ).to(device)
+
+#     pl_flowsep = load_flowsep_model(
+#         config_yaml=flowsep_config,
+#         checkpoint_path=flowsep_ckpt,
+#         device=device,
+#     )
+
+#     evaluator = VGGSoundEventSepEvaluator(
+#         sampling_rate=32000,
+#         sed_threshold=sed_threshold,
+#         mask_mode=sed_mask,
+#         ensemble=ensemble,
+#         ensemble_rate=ensemble_rate,
+#         ensemble_freq=ensemble_freq,
+#         clapscore_type=clapscore_type,
+#         embedding_model_type=embedding_model_type,
+#         demo_mode=demo_mode,
+#         use_demucs=use_demucs,
+#     )
+
+#     results = evaluator(pl_audiosep, pl_flowsep)
+
+#     print("\n===== FINAL RESULT =====")
+#     for k, v in results.items():
+#         print(f"{k}: {v:.4f}")
+
+#     return results
+
+# def save_results_to_txt(results, save_dir, exp_name, params):
+#     os.makedirs(save_dir, exist_ok=True)
+
+#     # 현재 시각 기반 파일명
+#     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+#     filename = f"{exp_name}_{timestamp}.txt"
+#     filepath = os.path.join(save_dir, filename)
+
+#     with open(filepath, "w") as f:
+#         f.write("===== Experiment Parameters =====\n")
+#         for k, v in params.items():
+#             f.write(f"{k}: {v}\n")
+
+#         f.write("\n===== Benchmark Results =====\n")
+#         for k, v in results.items():
+#             f.write(f"{k}: {v:.4f}\n")
+
+#     print(f"[Saved] → {filepath}")
+#     return filepath
+
+
+# if __name__ == '__main__':
+#     EXPERIMENTS = [
+#         dict(
+#             ensemble="audiosep",
+#             sed_mask="none",
+#             sed_threshold=0.55,
+#             ensemble_rate=0.1,
+#             ensemble_freq=4000,
+#             clapscore_type="auto",
+#             embedding_model_type="minilm",
+#             demo_mode=True,
+#             use_demucs=True,
+#         ),
+#         dict(
+#             ensemble="audiosep",
+#             sed_mask="none",
+#             sed_threshold=0.55,
+#             ensemble_rate=0.1,
+#             ensemble_freq=4000,
+#             clapscore_type="auto",
+#             embedding_model_type="minilm",
+#             demo_mode=True,
+#             use_demucs=False,
+#         ),
+#     ]
+
+#     easy_code = "DMND"
+#     repository = ""
+#     for idx, params in enumerate(EXPERIMENTS, start=1):
+#         print(f"\n======= Running experiment #{idx} =======")
+#         print(params)
+#         results = benchmark(**params)
+#         save_results_to_txt(
+#             results=results,
+#             save_dir=f"./results/{repository}",
+#             exp_name=f"{easy_code}_{idx}",
+#             params=params
+#         )
+
+
+# ========================== benchmark.py ==========================
+
 import os
-from tqdm import tqdm
-import numpy as np
-# from evaluation.evaluate_audioset import AudioSetEvaluator
-# from evaluation.evaluate_audiocaps import AudioCapsEvaluator
-from evaluation.evaluate_vggsound import VGGSoundEvaluator
-# from evaluation.evaluate_music import MUSICEvaluator
-# from evaluation.evaluate_esc50 import ESC50Evaluator
-# from evaluation.evaluate_clotho import ClothoEvaluator
-from models.clap_encoder import CLAP_Encoder
+import sys
+import datetime
 
-from utils import (
-    load_ss_model,
-    calculate_sdr,
-    calculate_sisdr,
-    parse_yaml,
-    get_mean_sdr_from_dict,
-)
+# AudioSep
+sys.path.append(os.path.join(os.getcwd(), "AudioSep"))
+from AudioSep.utils import load_ss_model, parse_yaml
+
+# FlowSep
+sys.path.append(os.path.join(os.getcwd(), "FlowSep/src"))
+sys.path.append(os.path.join(os.getcwd(), "FlowSep"))
+from utils_flowsep import load_flowsep_model
+
+# ===== Evaluators =====
+from evaluation.evaluate_vggsound_eventsep import VGGSoundEventSepEvaluator
+from evaluation.evaluate_audiocaps_eventsep import AudioCapsEvaluator
+from evaluation.evaluate_audioset_eventsep import AudioSetEvaluator
+from evaluation.evaluate_esc50_eventsep import ESC50Evaluator
+from evaluation.evaluate_music_eventsep import MUSICEvaluator
 
 
-def eval(checkpoint_path, config_yaml='AudioSep/config/audiosep_base.yaml'):
+# =====================================================================
+#                          Unified Benchmark
+# =====================================================================
 
-    log_dir = 'eval_logs'
-    os.makedirs(log_dir, exist_ok=True)
+DATASET_EVALUATORS = {
+    "vggsound": VGGSoundEventSepEvaluator,
+    "audiocaps": AudioCapsEvaluator,
+    "audioset": AudioSetEvaluator,
+    "esc50": ESC50Evaluator,
+    "music": MUSICEvaluator,
+}
+
+
+def benchmark(
+    dataset="vggsound",  # ★ 추가됨
+    audiosep_ckpt="AudioSep/checkpoint/audiosep_base_4M_steps.ckpt",
+    audiosep_config="AudioSep/config/audiosep_base.yaml",
+    flowsep_ckpt="FlowSep/model_logs/pretrained/v2_100k.ckpt",
+    flowsep_config="FlowSep/lass_config/2channel_flow.yaml",
+    ensemble="audiosep",
+    sed_mask="soft",
+    sed_threshold=0.5,
+    ensemble_rate=0.3,
+    ensemble_freq=4000,
+    clapscore_type="audiosep",
+    embedding_model_type="minilm",
+    demo_mode=False,
+    use_demucs=False,
+):
+
+    assert (
+        dataset in DATASET_EVALUATORS
+    ), f"[ERROR] Unknown dataset '{dataset}'. Choose from: {list(DATASET_EVALUATORS.keys())}"
 
     device = "cuda"
-    
-    configs = parse_yaml(config_yaml)
 
-    # # AudioSet Evaluators
-    # audioset_evaluator = AudioSetEvaluator()
-    # # AudioCaps Evaluator
-    # audiocaps_evaluator = AudioCapsEvaluator()
-    # VGGSound+ Evaluator (SED-guided EventSep 버전)
-    vggsound_evaluator = VGGSoundEvaluator(sampling_rate=32000, sed_threshold=0.3, use_sed_mask=True)
-    # # Clotho Evaluator
-    # clotho_evaluator = ClothoEvaluator()
-    # # MUSIC Evaluator
-    # music_evaluator = MUSICEvaluator()
-    # # ESC-50 Evaluator
-    # esc50_evaluator = ESC50Evaluator()
-    
-    # Load model
+    # ========== Load AudioSep ==========
+    configs = parse_yaml(audiosep_config)
+    from models.clap_encoder import CLAP_Encoder
+
     query_encoder = CLAP_Encoder().eval()
 
-    pl_model = load_ss_model(
-        configs=configs,
-        checkpoint_path=checkpoint_path,
-        query_encoder=query_encoder
+    pl_audiosep = load_ss_model(
+        configs=configs, checkpoint_path=audiosep_ckpt, query_encoder=query_encoder
     ).to(device)
 
-    print(f'-------  Start Evaluation  -------')
-
-    # ===== VGGSound+ (SDRi / SISDR / CLAPScore) =====
-    vgg_results = vggsound_evaluator(pl_model)
-    msg_vgg = (
-        "VGGSound Avg SDRi: {:.3f}, SISDR: {:.3f}, CLAPScore: {:.3f}, CLAPScoreA: {:.3f}"
-        .format(
-            vgg_results["SDRi"],
-            vgg_results["SISDR"],
-            vgg_results["CLAPScore"],
-            vgg_results["CLAPScoreA"],
-        )
+    # ========== Load FlowSep ==========
+    pl_flowsep = load_flowsep_model(
+        config_yaml=flowsep_config,
+        checkpoint_path=flowsep_ckpt,
+        device=device,
     )
-    print(msg_vgg)
-    
-    # # ===== MUSIC =====
-    # SISDR, SDRi = music_evaluator(pl_model)
-    # msg_music = "MUSIC Avg SDRi: {:.3f}, SISDR: {:.3f}".format(SDRi, SISDR)
-    # print(msg_music)
 
-    # # ===== ESC-50 =====
-    # SISDR, SDRi = esc50_evaluator(pl_model)
-    # msg_esc50 = "ESC-50 Avg SDRi: {:.3f}, SISDR: {:.3f}".format(SDRi, SISDR)
-    # print(msg_esc50)
+    # ========== Create evaluator ==========
+    EvaluatorClass = DATASET_EVALUATORS[dataset]
 
-    # # ===== AudioSet =====
-    # stats_dict = audioset_evaluator(pl_model=pl_model)
-    # median_sdris = {}
-    # median_sisdrs = {}
+    evaluator = EvaluatorClass(
+        sampling_rate=32000,
+        sed_threshold=sed_threshold,
+        mask_mode=sed_mask,
+        ensemble=ensemble,
+        ensemble_rate=ensemble_rate,
+        ensemble_freq=ensemble_freq,
+        clapscore_type=clapscore_type,
+        embedding_model_type=embedding_model_type,
+        demo_mode=demo_mode,
+        use_demucs=use_demucs,
+    )
 
-    # for class_id in range(527):
-    #     median_sdris[class_id] = np.nanmedian(stats_dict["sdris_dict"][class_id])
-    #     median_sisdrs[class_id] = np.nanmedian(stats_dict["sisdrs_dict"][class_id])
+    # ========== Run Evaluation ==========
+    results = evaluator(pl_audiosep, pl_flowsep)
 
-    # SDRi = get_mean_sdr_from_dict(median_sdris)
-    # SISDR = get_mean_sdr_from_dict(median_sisdrs)
-    # msg_audioset = "AudioSet Avg SDRi: {:.3f}, SISDR: {:.3f}".format(SDRi, SISDR)
-    # print(msg_audioset)
+    print("\n===== FINAL RESULT =====")
+    for k, v in results.items():
+        print(f"{k}: {v:.4f}")
 
-    # # ===== AudioCaps =====
-    # SISDR, SDRi = audiocaps_evaluator(pl_model)
-    # msg_audiocaps = "AudioCaps Avg SDRi: {:.3f}, SISDR: {:.3f}".format(SDRi, SISDR)
-    # print(msg_audiocaps)
-
-    # # Clotho (필요하면 다시 활성화)
-    # SISDR, SDRi = clotho_evaluator(pl_model)
-    # msg_clotho = "Clotho Avg SDRi: {:.3f}, SISDR: {:.3f}".format(SDRi, SISDR)
-    # print(msg_clotho)
-    
-    # msgs = [msg_audioset, msg_vgg, msg_audiocaps, msg_clotho, msg_music, msg_esc50]
-    msgs = [msg_vgg]
-
-    # open file in write mode
-    log_path = os.path.join(log_dir, 'eval_results.txt')
-    with open(log_path, 'w') as fp:
-        for msg in msgs:
-            fp.write(msg + '\n')
-    print(f'Eval log is written to {log_path} ...')
-    print('-------------------------  Done  ---------------------------')
+    return results
 
 
-if __name__ == '__main__':
-    eval(checkpoint_path='AudioSep/checkpoint/audiosep_base_4M_steps.ckpt')
+# =====================================================================
+#                         Save Result to TXT
+# =====================================================================
+
+
+def save_results_to_txt(results, save_dir, exp_name, params):
+    os.makedirs(save_dir, exist_ok=True)
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{exp_name}_{timestamp}.txt"
+    filepath = os.path.join(save_dir, filename)
+
+    with open(filepath, "w") as f:
+        f.write("===== Experiment Parameters =====\n")
+        for k, v in params.items():
+            f.write(f"{k}: {v}\n")
+
+        f.write("\n===== Benchmark Results =====\n")
+        for k, v in results.items():
+            f.write(f"{k}: {v:.4f}\n")
+
+    print(f"[Saved] → {filepath}")
+    return filepath
+
+
+# =====================================================================
+#                                MAIN
+# =====================================================================
+
+if __name__ == "__main__":
+
+    demo_mode = False
+
+    EXPERIMENTS = [
+        dict(
+            dataset="vggsound",
+            ensemble="audiosep",
+            sed_mask="hard",
+            sed_threshold=0.55,
+            ensemble_rate=0.1,
+            ensemble_freq=4000,
+            clapscore_type="auto",
+            embedding_model_type="minilm",
+            demo_mode=demo_mode,
+            use_demucs=False,
+        ),
+        dict(
+            dataset="vggsound",
+            ensemble="audiosep",
+            sed_mask="hard",
+            sed_threshold=0.6,
+            ensemble_rate=0.1,
+            ensemble_freq=4000,
+            clapscore_type="auto",
+            embedding_model_type="minilm",
+            demo_mode=demo_mode,
+            use_demucs=False,
+        ),
+        dict(
+            dataset="vggsound",
+            ensemble="audiosep",
+            sed_mask="hard",
+            sed_threshold=0.5,
+            ensemble_rate=0.1,
+            ensemble_freq=4000,
+            clapscore_type="auto",
+            embedding_model_type="minilm",
+            demo_mode=demo_mode,
+            use_demucs=False,
+        ),
+        dict(
+            dataset="vggsound",
+            ensemble="audiosep",
+            sed_mask="hard",
+            sed_threshold=0.65,
+            ensemble_rate=0.1,
+            ensemble_freq=4000,
+            clapscore_type="auto",
+            embedding_model_type="minilm",
+            demo_mode=demo_mode,
+            use_demucs=False,
+        ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="flowsep",
+        #     sed_mask="none",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="audiosep",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="ensemble-a",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="ensemble-b",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="ensemble-c",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="ensemble-d",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+        # dict(
+        #     dataset="esc50",
+        #     ensemble="ensemble-e",
+        #     sed_mask="soft",
+        #     sed_threshold=0.55,
+        #     ensemble_rate=0.1,
+        #     ensemble_freq=4000,
+        #     clapscore_type="auto",
+        #     embedding_model_type="minilm",
+        #     demo_mode=demo_mode,
+        #     use_demucs=False,
+        # ),
+    ]
+
+    easy_code = "DMND"
+    repository = "hard_mask_experiments"
+
+    for idx, params in enumerate(EXPERIMENTS, start=1):
+        print(f"\n======= Running experiment #{idx} =======")
+        print(params)
+        results = benchmark(**params)
+        save_results_to_txt(
+            results=results,
+            save_dir=f"./results/{repository}",
+            exp_name=f"{easy_code}_{idx}",
+            params=params,
+        )

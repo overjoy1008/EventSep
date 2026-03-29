@@ -1,9 +1,4 @@
-# ============================================
-# EventSep Project .gitignore
-# RTX 5080 CUDA12.8 + AudioSep + FlowSep
-# ============================================
-
-# ---- Python ----
+# Python
 __pycache__/
 *.pyc
 *.pyo
@@ -11,9 +6,8 @@ __pycache__/
 *.pdb
 *.egg-info/
 *.egg
-*.log
 
-# ---- virtual environments ----
+# Environments
 .venv/
 venv/
 env/
@@ -21,16 +15,20 @@ env/
 opt/
 opt/EventSep/
 
-# ---- Jupyter ----
-.ipynb_checkpoints/
-
-# ---- System / Editor ----
+# Editors / OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .vscode/
 .idea/
+*.ipynb
 
-# ---- Build / Cache ----
+# Nested repositories
+**/.git/
+**/.git.embedded-backup/
+
+# Build / cache / logs
 build/
 dist/
 .cache/
@@ -38,49 +36,129 @@ dist/
 .huggingface/
 .wandb/
 lightning_logs/
-
-# ---- Audio & temp artifacts ----
-*.wav
-*.mp3
-*.flac
-*.ogg
-*.aiff
-*.m4a
-*.aac
-
-# ---- Model Checkpoints (AudioSep) ----
-AudioSep/checkpoint/
-AudioSep/input/
-AudioSep/output/
-AudioSep/logs/
-
-# ---- Model Checkpoints (FlowSep) ----
-FlowSep/model_logs/pretrained/
-FlowSep/input/
-FlowSep/output/
-FlowSep/logs/
-
-# # ---- Large data ----
-# data/
-# dataset/
-# datasets/
-# input/
-# output/
-# inputs/
-# outputs/
-# results/
-
-# ---- Docker ----
-*.tar
-*.img
-*.log
-
-# ---- Temporary ----
 tmp/
 temp/
 *.tmp
+*.log
 
-# ---- OS-specific ----
-ehthumbs.db
-Desktop.ini
+# Archives
+*.zip
+*.tar
+*.img
+
+# Large model files
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Root-level large artifacts and notes
+_paper_extract.txt
+_flowsep_temp_input.wav
+_temp*.wav
+output.zip
+output (2).zip
+dev_note copy.md
+final_note.md
+main.tex
+main.bib
+
+# Root outputs / experiments
+output/
+output_16k/
+output_5080/
+results/
+results_5080/
+debug_samples/
+eval/
+_temp_eval_vggsound/
+
+# Keep only the demo input
+input/*
+!input/lullaby_short.mp3
+
+# Evaluation payloads
+evaluation/data/
+evaluation/debug/
+evaluation/legacy/
+
+# External or unused repositories / legacy tech
+Qwen-Audio/
+AudioLDM-training-finetuning/
+taming/
+
+# Root model/data folders
+checkpoint/
+clapscore_models/
+metadata-master/
+
+# AudioSep
+AudioSep/.git/
+AudioSep/checkpoint/
+AudioSep/input/
+AudioSep/output/
+AudioSep/data/
+AudioSep/datafiles/
+AudioSep/eval_logs/
+AudioSep/__pycache__/
+AudioSep/*.ipynb
+
+# FlowSep
+FlowSep/.git/
+FlowSep/clap_weights/
+FlowSep/input/
+FlowSep/output/
+FlowSep/lass_result/
+FlowSep/temp_flowsep_out/
+FlowSep/benchmark_eval/
+FlowSep/eval/
+FlowSep/eval_logs_flowsep/
+FlowSep/lightning_logs/
+FlowSep/model_logs/pretrained/
+FlowSep/vggsound_eval_*/
+FlowSep/__pycache__/
+FlowSep/src/**/__pycache__/
+FlowSep/src/bigvgan/g_01000000
+
+# BigVGAN
+BigVGAN/.git/
+BigVGAN/demo/examples/
+BigVGAN/filelists/LibriTTS/*.txt
+
+# SED / transformer repos
+ATST-SED/.git/
+ATST-SED/input/
+ATST-SED/output/
+ATST-SED/PSDS_Eval/meta/
+ATST-SED/inference_test*.png
+ATST-SED/test*.wav
+HTS-Audio-Transformer/.git/
+HTS-Audio-Transformer/input/
+HTS-Audio-Transformer/output/
+HTS-Audio-Transformer/heatmap_output/
+
+# Demucs
+demucs/.git/
+demucs/input/
+demucs/output/
+demucs/outputs/
+demucs/separated/
+demucs/outputs.tar.gz
+demucs/test.mp3
+
+# audioset_tagging_cnn
+audioset_tagging_cnn/.git/
+audioset_tagging_cnn/pytorch/*.pth
+audioset_tagging_cnn/resources/
+audioset_tagging_cnn/results/
+
+# Generated paper assets
+figures/
+
+# Legacy utility variants
+utils/metric_utilsAMTH.py
+utils/text_utilsAMTH.py
+utils/text_utilsAQMR.py
+utils/text_utilsGRNT.py
 

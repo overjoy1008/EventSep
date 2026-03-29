@@ -1,236 +1,137 @@
-# **EventSep: Text-Queried Sound Event Separation via SED-Guided Multimodal Audio Models (실제 내용 아님, GPT 출력 예시)**
+# EventSep
 
-### *A State-of-the-Art Architecture for Universal Text-Conditioned Audio Separation (RTX 5080 CUDA 12.8 Ready)*
+EventSep is a text-queried sound event separation framework that combines pretrained source separation, sound event detection, and diffusion-based refinement models. The method follows the paper `EventSep: 사전 학습 모델 결합 기반의 선택적 음원 분리` and focuses on improving semantic alignment and temporal selectivity without additional fine-tuning.
 
+## Links
 
+- Demo: [https://eventsep-demo.onrender.com/](https://eventsep-demo.onrender.com/)
+- Paper PDF: [paper/EventSep.pdf](paper/EventSep.pdf)
 
 ## Overview
 
-**EventSep**은
-- **AudioSep(Text-Queried Audio Source Separation)** 를 기반으로 하고
-- **FlowSep(Diffusion-Based Audio Separation)** 의 장점을 가져오며
-- 여기에 **Sound Event Detection(SED)** 기반의 *event-aware conditioning* 을 결합한
+Text-guided source separation is flexible, but it often suffers from ambiguous prompts, missing temporal information, and prompt-audio mismatch. EventSep addresses this by combining:
 
-> **현존 가장 강력한 Text-Queried Event-Level Audio Separation 시스템**이다.
+- PANNs-based frame-wise SED for time-selective masking
+- AudioSep for text-conditioned semantic separation
+- FlowSep for perceptual refinement and high-frequency restoration
+- STFT-based ensemble fusion for more stable final outputs
 
-EventSep은 단순한 “음원 분리(Source Separation)”가 아니라,
-**텍스트에서 지정된 이벤트 단위(Event-level)로 오디오를 분리하는** 새로운 패러다임을 다룬다.
+The full pipeline is:
 
+1. Map the text prompt to the closest AudioSet-style target class.
+2. Extract frame-wise event probabilities with SED.
+3. Apply a temporal mask to suppress over-separation in irrelevant regions.
+4. Run AudioSep and FlowSep in parallel.
+5. Fuse both outputs in the STFT domain.
 
+## Main Findings
 
-# Key Contributions
+- EventSep consistently improves semantic alignment over AudioSep on VGGSound.
+- SED soft masking is the most important contributor to performance gains.
+- The method preserves AudioSep's intelligibility while benefiting from FlowSep's perceptual refinement.
 
-### 1. **Event-Aware Separation**
+### Overall Results
 
-기존 AudioSep이 text-query만 사용한 것과 달리,
-EventSep은 **SED-guided feature mask** 를 사용해
-오디오 내 이벤트의 구조적 정보를 separation backbone에 직접 injection 한다.
+| Model | VGGSound CLAP | VGGSound CLAP-A | VGGSound STOI | VGGSound ESTOI | MUSIC CLAP | MUSIC CLAP-A | MUSIC STOI | MUSIC ESTOI | ESC-50 CLAP | ESC-50 CLAP-A | ESC-50 STOI | ESC-50 ESTOI |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| AudioSep | 0.2838 | 0.7881 | 0.6408 | 0.5790 | 0.3497 | 0.8830 | 0.6973 | 0.6325 | 0.4426 | 0.7700 | 0.6976 | 0.5998 |
+| FlowSep | 0.3222 | 0.7344 | 0.4278 | 0.3429 | 0.2083 | 0.7108 | 0.4534 | 0.3615 | 0.3545 | 0.6332 | 0.4569 | 0.3290 |
+| EventSep (Ours) | **0.3549** | **0.8199** | 0.6403 | 0.5786 | 0.3494 | **0.8832** | 0.6969 | 0.6321 | **0.4433** | **0.7705** | **0.6977** | **0.5999** |
 
-### 2. **Hybrid Architecture (AudioSep + FlowSep)**
+On VGGSound, EventSep improves CLAPScore from `0.2838` to `0.3549`, which is about a 25% relative gain over AudioSep.
 
-* AudioSep의 높은 **query-to-audio alignment**
-* FlowSep의 high-fidelity **diffusion-based refinement**
+### Masking Ablation
 
-두 모델을 결합해
-**정확도(AudioSep) + 음질 개선(FlowSep)** 을 동시에 달성한다.
+Soft masking with threshold `0.55` gave the best VGGSound ablation result:
 
-### 3. **Tiny Post-Diffusion Refinement Module**
+- SDRi: `8.901`
+- SI-SDR: `8.975`
 
-Slakh2100의 잔여 residual artifact를 제거하는
-초소형 diffusion-denoiser 모듈 추가.
+### Ensemble Ablation
 
-### 4. **Zero-shot Text-Conditioned Event Separation**
+The ensemble variants show similar performance, with small trade-offs across CLAPScore and CLAPScoreA:
 
-Sed 모델, Text Encoder, Audio Backbone 3개 모듈이 완전 독립.
-새로운 이벤트/악기/효과음에 대한 zero-shot separation 가능.
+| Method | CLAPScore | CLAPScoreA |
+| --- | ---: | ---: |
+| Rate-weighted | 0.3396 | 0.7979 |
+| Band-split | 0.3396 | 0.8009 |
+| Reverse Band-split | 0.3394 | **0.8011** |
+| Progressive | **0.3398** | 0.7977 |
+| Reverse Progressive | 0.3387 | 0.8009 |
 
+## Repository Scope
 
+This repository is intentionally prepared for code sharing and demo reproducibility. Large checkpoints, datasets, generated outputs, temporary files, and legacy experimental folders are excluded from version control.
 
-# System Architecture (Model Skeleton — *중요*)
+Included:
 
-아래는 EventSep의 최상위 스켈레톤 구조이다.
-(**교수급 설계문서 스타일로 작성됨**)
+- core EventSep inference and benchmark code
+- adapted `AudioSep`, `FlowSep`, and `audioset_tagging_cnn` source trees
+- evaluation scripts and lightweight metadata
+- one demo input file: `input/lullaby_short.mp3`
+- paper PDF
 
-```
-EventSep
-│
-├── Text Encoder (CLAP-based)
-│     └── Tokenizer (RobertaTokenizer)
-│     └── CLAP Text Transformer
-│     └── Text Embedding (Dim: 512)
-│
-├── SED Frontend (Pretrained SED Model)
-│     └── Log-Mel Spectrogram (32kHz)
-│     └── Event Detection Head
-│     └── Framewise Event Probability Map
-│     └── Event Mask (T × F)
-│
-├── AudioSep Backbone (Query-to-Audio Separation)
-│     └── Audio Encoder (HTSAT-style CNN transformer)
-│     └── Cross-Attention (Text ↔ Audio)
-│     └── Conditional Mask Estimator
-│     └── Predicted Separation Mask M_sep
-│
-├── Event Fusion Module
-│     └── Fuse(M_sep, EventMask) → M_event
-│     └── Gated Fusion / Sigmoid Mixing
-│
-├── Separator Head
-│     └── x * M_event → Separated Audio (32kHz)
-│
-└── FlowSep Post-Diffusion Refinement  (Optional)
-      └── Diffusion U-Net
-      └── Noise Predictor
-      └── Artifact Suppression
-```
+Excluded from Git:
 
----
+- model checkpoints such as `.ckpt`, `.pt`, `.pth`
+- dataset payloads and generated evaluation audio
+- inference outputs and experiment logs
+- unused or paper-external tech such as `demucs/`
+- nested repository metadata such as subdirectory `.git/`
 
-# Installation
+## Environment
 
-### 1. Clone Repository
+Two setup paths are included:
 
-```
-git clone https://github.com/yourname/EventSep.git
-cd EventSep
-```
+- `environment.yml`
+- `Dockerfile`
 
----
+Note: pretrained checkpoints are not committed in this repository, so they must be provided separately for full inference.
 
-# **Docker (Recommended, RTX 5080 / CUDA 12.8 최적화)**
+## Inference
 
-프로젝트는 5080 RTX의 sm_120 환경에 완벽하게 맞춰졌으며
-PyTorch nightly cu128 빌드를 사용한다.
+The unified inference entrypoint is [`inference.py`](./inference.py).
 
-### Build image
+Example:
 
-```
-docker build -t eventsep-nightly:latest .
+```bash
+python inference.py ^
+  --audio input/lullaby_short.mp3 ^
+  --text "female vocal" ^
+  --masking soft ^
+  --threshold 0.55 ^
+  --base_model ensemble_a ^
+  --output_audiosep output/lullaby_short_eventsep.wav ^
+  --vis_dir output/visualize
 ```
 
-### Run container
+Supported base models:
 
-```
-docker run --gpus all -it --rm \
-    --name eventsep_nightly \
-    -v /mnt/c/Users/<USER>/EventSep:/workspace \
-    -w /workspace/AudioSep \
-    eventsep-nightly:latest \
-    /bin/bash
-```
+- `audiosep`
+- `flowsep`
+- `both`
+- `ensemble_a`
+- `ensemble_b`
+- `ensemble_c`
+- `ensemble_d`
+- `ensemble_e`
 
+## Benchmark
 
+The benchmark entrypoint is [`benchmark.py`](./benchmark.py). By default, benchmark result folders are ignored from Git.
 
-# Project Structure
+## Limitations
 
-```
-EventSep/
-│
-├── AudioSep/             # Text-based separator backbone
-│   ├── checkpoint/       # (Ignored in git)
-│   ├── config/
-│   ├── models/
-│   └── run_inference.py
-│
-├── FlowSep/              # Diffusion refinement module
-│   ├── model_logs/
-│   │   └── pretrained/   # (Ignored in git)
-│   └── inference/
-│
-├── SED/                  # SED event-awareness frontend
-├── environment.yml
-├── Dockerfile
-├── README.md
-└── .gitignore
-```
+- EventSep depends on the AudioSet label space used by PANNs-SED, so fine-grained instrument distinction can be limited.
+- FlowSep can improve perceptual quality, but its generative nature may sometimes introduce small artifacts not present in the original signal.
+- The paper mainly evaluates single-concept prompts rather than more complex negative or context-heavy prompts.
 
----
+## Citation
 
-# Running Inference
-
-### Step 1 — Prepare your audio file
-
-```
-input/lullaby_short.mp3
-```
-
-### Step 2 — Run AudioSep separation
-
-```python
-from pipeline import build_audiosep, separate_audio
-import torch
-
-device = torch.device("cuda")
-
-model = build_audiosep(
-    config_yaml="config/audiosep_base.yaml",
-    checkpoint_path="checkpoint/audiosep_base_4M_steps.ckpt",
-    device=device,
-)
-
-audio_file = "input/lullaby_short.mp3"
-output_file = "output/vocal.wav"
-
-separate_audio(model, audio_file, "female vocal", output_file, device)
-```
-
----
-
-# FlowSep Refinement
-
-(Optional, 더 높은 음질이 필요할 때)
-
-```
-python FlowSep/inference/run_flowsep.py \
-    --input output/vocal.wav \
-    --ckpt FlowSep/model_logs/pretrained/v2_100k.ckpt \
-    --vae FlowSep/model_logs/pretrained/vae.ckpt \
-    --output output/vocal_refined.wav
-```
-
-
-
-# Datasets (Training / Evaluation)
-
-* **Slakh2100**
-* **AudioSet (Text-conditioned evaluation)**
-* **BBC Sound Effects**
-* **FSD50K / ESC-50 (event-level separation testing)**
-
-
-
-# Performance
-
-EventSep는 아래의 기준에서 SOTA 성능을 보고했다:
-
-| Model               | SDR ↑  | PESQ ↑ | Zero-shot Generalization |
-| ------------------- | ------ | ------ | ------------------------ |
-| AudioSep            | 좋음     | 중간     | 중간                       |
-| FlowSep             | 매우 좋음  | 가장 좋음  | 낮음                       |
-| **EventSep (ours)** | **최고** | **최고** | **최고 (SED 활용)**          |
-
-
-
-# Research Notes
-
-EventSep는 3개의 독립적인 pretrained 모듈을 활용하는 구조지만
-training 없이 zero-shot으로도 매우 강력한 분리를 보여준다.
-
-Event-level SED를 결합함으로써
-
-> *“Text → Event → Mask → Separation”*
-
-이라는 명확한 정보 흐름이 만들어지고, 이것이 SOTA 분리 성능을 만든다.
-
-
-
-# Citation
-
-```
-@article{eventsep2025,
-  title={EventSep: Text-Queried Event-Aware Audio Source Separation},
-  author={You, The Brilliant Researcher},
-  journal={ArXiv},
-  year={2025}
+```bibtex
+@article{eventsep,
+  title={EventSep: 사전 학습 모델 결합 기반의 선택적 음원 분리},
+  author={Park, Kyungbin},
+  year={2026}
 }
 ```

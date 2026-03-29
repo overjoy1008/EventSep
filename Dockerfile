@@ -1,5 +1,6 @@
-# ===== EventSep Docker (PyTorch Nightly + CUDA 12.8, RTX 5080 sm_120) =====
-FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
+# ===== EventSep Docker =====
+# (RTX 3060용 CUDA 12.1)
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 # ---- 기본 유틸 ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,7 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ---- 프로젝트 ----
 WORKDIR /workspace
-COPY . /workspace
+# COPY를 실행하면 이미지 용량이 엄청 커짐
+# COPY . /workspace
+COPY environment.yml /workspace/
 
 # ---- python venv(EventSep) ----
 RUN python3 -m venv /opt/EventSep
@@ -26,7 +29,7 @@ RUN awk '/^[[:space:]]*- pip:/{flag=1;next} \
           /workspace/environment.yml \
         > /workspace/requirements.txt
 
-# ---- torch 관련 패키지 제거 (nightly 설치 전에 충돌 방지) ----
+# ---- torch 관련 패키지 제거 ----
 RUN sed -i '/torch/d' /workspace/requirements.txt && \
     sed -i '/pytorch-lightning/d' /workspace/requirements.txt && \
     sed -i '/lightning/d' /workspace/requirements.txt && \
@@ -41,9 +44,8 @@ RUN sed -i 's/av==10.0.0/av==12.0.0/' /workspace/requirements.txt
 RUN pip install --no-cache-dir -r /workspace/requirements.txt
 
 # =============================================================
-# 🚀 핵심 라인: CUDA 12.8 + PyTorch Nightly(sm_120 지원) 설치
+# 🚀 Stable PyTorch 설치 (CUDA 12.1 → RTX 3060 완전 지원)
 # =============================================================
-RUN pip install --pre torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/nightly/cu128
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 CMD ["/bin/bash"]
