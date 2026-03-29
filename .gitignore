@@ -59,10 +59,14 @@ _flowsep_temp_input.wav
 _temp*.wav
 output.zip
 output (2).zip
+546725
+dev_note.md
 dev_note copy.md
 final_note.md
 main.tex
 main.bib
+eval_logs/
+health/
 
 # Root outputs / experiments
 output/
